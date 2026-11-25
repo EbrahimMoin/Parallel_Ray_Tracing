@@ -97,21 +97,39 @@ Measured on **AMD Ryzen 5 8400F (6 physical cores / 12 logical threads)** + **NV
 
 ## Quick Start (Ubuntu / WSL2)
 
-### 1. Install Toolchain (Once)
+> **Why Ubuntu / WSL2 on Windows?**  
+> OpenMPI (`mpic++`, `mpirun` with `--bind-to none --use-hwthread-cpus`), GNU `g++` + `libgomp` (OpenMP), `make`, `zlib`, `/proc/cpuinfo`/`lscpu` topology detection, and NVIDIA's Linux CUDA toolchain (`nvcc`) work seamlessly together inside Ubuntu / WSL2 without Windows MSVC vs. MinGW ABI mismatches or dropped OpenMPI Windows support. Native Linux machines can run the exact same commands directly.
+
+### CPU-Only Laptop Setup (Portable Viva Demo)
+Use this on any Linux/WSL2 laptop without an NVIDIA GPU (`2+` threads/cores):
+
 ```bash
-bash scripts/setup_wsl.sh          # Full toolchain (g++, make, OpenMPI, CUDA toolkit)
-# Or on a CPU-only machine:
+git clone https://github.com/EbrahimMoin/Parallel_Ray_Tracing.git
+cd Parallel_Ray_Tracing
 bash scripts/setup_wsl.sh --cpu-only
+make NO_CUDA=1
+python3 server.py --no-cuda
 ```
 
-### 2. Build Binaries
+Open **`http://localhost:8000`** in your browser — the 6 pre-rendered 4K/8K RTX 3050 showcase images load automatically in the filmstrip alongside live Sequential, OpenMP, MPI, and Hybrid (`2×2`) renders.
+
+### Full Workstation Setup (CPU + NVIDIA CUDA)
+
+#### 1. Clone & Install Toolchain (Once)
+```bash
+git clone https://github.com/EbrahimMoin/Parallel_Ray_Tracing.git
+cd Parallel_Ray_Tracing
+bash scripts/setup_wsl.sh          # Full toolchain (g++, make, OpenMPI, CUDA toolkit)
+```
+
+#### 2. Build Binaries
 ```bash
 make                # Builds all 5 binaries (CUDA built automatically if nvcc is found)
 # Force CPU-only build (skips raytracer_cuda cleanly):
 make NO_CUDA=1
 ```
 
-### 3. Launch the Interactive Web Studio
+#### 3. Launch the Interactive Web Studio
 ```bash
 python3 server.py
 # Or simulate a CPU-only machine (loads saved RTX 3050 4K/8K showcase items cleanly):

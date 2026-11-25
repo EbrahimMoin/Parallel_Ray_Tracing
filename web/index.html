@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RayTrace Studio — PDC Project #15</title>
+<style>
+  :root {
+    --bg: #09090b;
+    --panel: #111114;
+    --surface: #17171c;
+    --surface-hover: #1e1e25;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text: #f4f4f5;
+    --muted: #8e8e98;
+    --dim: #5c5c66;
+
+    --topbar-bg: rgba(17, 17, 20, 0.85);
+    --seg-hover: rgba(255, 255, 255, 0.04);
+    --seg-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --adv-bg: rgba(255, 255, 255, 0.015);
+    --vp-bg: radial-gradient(circle at 50% 42%, #131622 0%, #060608 75%);
+    --thumb-bg: #050507;
+    --hud-bg: rgba(11, 11, 15, 0.74);
+    --hud-active-bg: rgba(255, 255, 255, 0.15);
+    --hud-active-text: #ffffff;
+    --status-bg: rgba(11, 11, 15, 0.84);
+    --console-bg: #070709;
+    --console-text: #b4bac6;
+    --slider-thumb: #f4f4f5;
+    --slider-thumb-shadow: 0 1px 5px rgba(0, 0, 0, 0.6);
+
+    --seq: #a1a1aa;
+    --omp: #38bdf8;
+    --mpi: #f59e0b;
+    --hybrid: #a855f7;
+    --cuda: #10b981;
+    --accent: #38bdf8;
+    --danger: #ef4444;
+
+    --omp-text: #7dd3fc;
+    --mpi-text: #fcd34d;
+    --hybrid-text: #d8b4fe;
+    --cuda-text: #6ee7b7;
+    --cuda-ok-text: #a7f3d0;
+    --cuda-off-text: #fde68a;
+    --danger-text: #fca5a5;
+    --chip-active-bg: rgba(168, 85, 247, 0.16);
+    --chip-active-border: rgba(168, 85, 247, 0.6);
+
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  :root[data-theme="light"] {
+    --bg: #f3f4f8;
+    --panel: #ffffff;
+    --surface: #eef0f5;
+    --surface-hover: #e4e7f0;
+    --border: rgba(15, 23, 42, 0.09);
+    --border-strong: rgba(15, 23, 42, 0.18);
+    --text: #0f172a;
+    --muted: #526074;
+    --dim: #7b8799;
+
+    --topbar-bg: rgba(255, 255, 255, 0.86);
+    --seg-hover: rgba(15, 23, 42, 0.05);
+    --seg-shadow: 0 1px 3px rgba(15, 23, 42, 0.10);
+    --adv-bg: rgba(15, 23, 42, 0.02);
+    --vp-bg: radial-gradient(circle at 50% 42%, #e9edf5 0%, #dbe1ec 80%);
+    --thumb-bg: #e2e8f0;
+    --hud-bg: rgba(255, 255, 255, 0.86);
+    --hud-active-bg: #0f172a;
+    --hud-active-text: #ffffff;
+    --status-bg: rgba(255, 255, 255, 0.92);
+    --console-bg: #f8fafc;
+    --console-text: #1e293b;
+    --slider-thumb: #0f172a;
+    --slider-thumb-shadow: 0 1px 4px rgba(15, 23, 42, 0.35);
+
+    --omp-text: #0369a1;
+    --mpi-text: #b45309;
+    --hybrid-text: #7e22ce;
+    --cuda-text: #047857;
+    --cuda-ok-text: #065f46;
+    --cuda-off-text: #92400e;
+    --danger-text: #b91c1c;
+    --chip-active-bg: rgba(126, 34, 206, 0.12);
+    --chip-active-border: rgba(126, 34, 206, 0.45);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    transition: background 180ms var(--ease), color 180ms var(--ease);
+  }
+
+  .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* App Shell */
+  .app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* Top Bar */
+  header.topbar {
+    height: 52px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--topbar-bg);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    transition: background 180ms var(--ease), border-color 180ms var(--ease);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .brand-mark {
+    width: 26px;
+    height: 26px;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #38bdf8 0%, #a855f7 100%);
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.28);
+  }
+
+  .brand-name {
+    font-size: 0.95rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .brand-tag {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  .hw-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .hw-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 550;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .hw-pill .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+  }
+
+  .hw-pill.cuda-ok {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.10);
+    color: var(--cuda-ok-text);
+  }
+  .hw-pill.cuda-ok .dot { background: var(--cuda); box-shadow: 0 0 8px var(--cuda); }
+
+  .hw-pill.cuda-off {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.10);
+    color: var(--cuda-off-text);
+  }
+  .hw-pill.cuda-off .dot { background: var(--mpi); }
+
+  .theme-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 550;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 160ms var(--ease);
+  }
+  .theme-btn:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+
+  /* Workspace Grid */
+  .workspace {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: calc(100vh - 52px);
+  }
+
+  @media (max-width: 960px) {
+    .workspace { grid-template-columns: 1fr; }
+  }
+
+  /* Left Control Sidebar */
+  aside.sidebar {
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .sidebar-scroll {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+  }
+
+  .ctrl-group {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .ctrl-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+
+  .ctrl-val {
+    color: var(--text);
+    font-size: 0.75rem;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* Segmented Control */
+  .seg {
+    display: grid;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 3px;
+    gap: 3px;
+  }
+  .seg-5 { grid-template-columns: repeat(5, 1fr); }
+  .seg-4 { grid-template-columns: repeat(4, 1fr); }
+  .seg-2 { grid-template-columns: repeat(2, 1fr); }
+
+  .seg-btn {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 7px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 160ms var(--ease);
+    white-space: nowrap;
+  }
+  .seg-btn:hover:not(:disabled) { color: var(--text); background: var(--seg-hover); }
+  .seg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .seg-btn.active {
+    background: var(--surface-hover);
+    color: var(--text);
+    box-shadow: var(--seg-shadow), inset 0 0 0 1px var(--border-strong);
+  }
+  .seg-btn[data-be="seq"].active { box-shadow: var(--seg-shadow), inset 0 0 0 1px rgba(161,161,170,0.5); }
+  .seg-btn[data-be="omp"].active { color: var(--omp-text); box-shadow: inset 0 0 0 1px rgba(56,189,248,0.5); background: rgba(56,189,248,0.14); }
+  .seg-btn[data-be="mpi"].active { color: var(--mpi-text); box-shadow: inset 0 0 0 1px rgba(245,158,11,0.5); background: rgba(245,158,11,0.14); }
+  .seg-btn[data-be="hybrid"].active { color: var(--hybrid-text); box-shadow: inset 0 0 0 1px rgba(168,85,247,0.5); background: rgba(168,85,247,0.14); }
+  .seg-btn[data-be="cuda"].active { color: var(--cuda-text); box-shadow: inset 0 0 0 1px rgba(16,185,129,0.5); background: rgba(16,185,129,0.14); }
+
+  /* Scene Cards Grid */
+  .scene-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .scene-btn {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 9px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.77rem;
+    font-weight: 550;
+    cursor: pointer;
+    text-align: left;
+    transition: all 160ms var(--ease);
+  }
+  .scene-btn:hover { border-color: var(--border-strong); color: var(--text); }
+  .scene-btn.active {
+    color: var(--text);
+    background: var(--surface-hover);
+    border-color: rgba(56, 189, 248, 0.55);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.15);
+  }
+  .scene-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Quick Chips */
+  .chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.74rem;
+    font-weight: 550;
+    cursor: pointer;
+    transition: all 140ms var(--ease);
+  }
+  .chip:hover { color: var(--text); border-color: var(--border-strong); }
+  .chip.active {
+    color: var(--text);
+    background: var(--chip-active-bg);
+    border-color: var(--chip-active-border);
+  }
+
+  /* Range Slider */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--surface-hover);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: var(--slider-thumb);
+    cursor: pointer;
+    box-shadow: var(--slider-thumb-shadow);
+  }
+
+  /* Collapsible Advanced Drawer */
+  details.adv {
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--adv-bg);
+  }
+  details.adv summary {
+    padding: 8px 11px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  details.adv summary::-webkit-details-marker { display: none; }
+  details.adv[open] summary { color: var(--text); border-bottom: 1px solid var(--border); }
+  .adv-body {
+    padding: 10px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; }
+
+  label.fld {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  input[type="number"], select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 0.79rem;
+    width: 100%;
+    outline: none;
+  }
+  input[type="number"]:focus, select:focus { border-color: var(--accent); }
+
+  label.chk {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.77rem;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  label.chk input { accent-color: var(--accent); }
+
+  /* Sticky Sidebar Footer */
+  .sidebar-foot {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 0.83rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 160ms var(--ease);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .btn:hover:not(:disabled) { background: var(--surface-hover); border-color: var(--border-strong); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-primary {
+    flex: 1;
+    border: none;
+    background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
+    color: #fff;
+    box-shadow: 0 4px 18px rgba(14, 165, 233, 0.25);
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+    box-shadow: 0 6px 22px rgba(14, 165, 233, 0.36);
+  }
+  .btn-danger {
+    flex: 1;
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--danger-text);
+  }
+
+  /* Main Stage */
+  section.stage {
+    padding: 16px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* Hero Viewport */
+  .viewport {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: 64vh;
+    border-radius: 14px;
+    background: var(--vp-bg);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .viewport img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  .hm-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .split-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.85);
+    cursor: ew-resize;
+    z-index: 6;
+  }
+  .split-handle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(244, 244, 245, 0.96);
+    color: #09090b;
+    display: grid;
+    place-items: center;
+    font-size: 0.78rem;
+    font-weight: 800;
+    box-shadow: 0 3px 14px rgba(0, 0, 0, 0.65);
+  }
+
+  .hud-pill {
+    position: absolute;
+    top: 12px;
+    z-index: 8;
+    background: var(--hud-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-strong);
+    border-radius: 9px;
+    padding: 4px 10px;
+    font-size: 0.74rem;
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hud-left { left: 12px; }
+  .hud-right {
+    right: 12px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .hud-mode {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 4px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 140ms var(--ease);
+  }
+  .hud-mode:hover:not(:disabled) { color: var(--text); }
+  .hud-mode:disabled { opacity: 0.35; cursor: not-allowed; }
+  .hud-mode.active { background: var(--hud-active-bg); color: var(--hud-active-text); }
+
+  .empty-hero {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--muted);
+    text-align: center;
+    padding: 24px;
+  }
+  .empty-hero svg { opacity: 0.55; }
+  .empty-hero p { margin: 0; font-size: 0.86rem; color: var(--text); font-weight: 550; }
+  .empty-hero span { font-size: 0.77rem; color: var(--muted); }
+
+  .vp-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    background: rgba(255,255,255,0.06);
+    z-index: 9;
+    display: none;
+  }
+  .vp-progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #38bdf8, #a855f7, #10b981);
+    transition: width 220ms var(--ease);
+  }
+
+  .status-pill {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    z-index: 9;
+    background: var(--status-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 0.74rem;
+    color: var(--text);
+    display: none;
+  }
+
+  /* Compact Telemetry Strip */
+  .telemetry-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  @media (max-width: 720px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 9px 12px;
+  }
+  .kpi-lbl {
+    font-size: 0.69rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+  .kpi-val {
+    font-size: 1.06rem;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  .stage-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .stage-bar {
+    flex: 1;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--bg);
+    overflow: hidden;
+    display: flex;
+  }
+  .stage-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  .sw {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  .console-drawer {
+    background: var(--console-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 11px;
+    font-size: 0.73rem;
+    color: var(--console-text);
+    max-height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    display: none;
+  }
+  .console-drawer.open { display: block; }
+
+  /* Filmstrip */
+  .filmstrip-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .filmstrip {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .thumb-card {
+    position: relative;
+    flex: 0 0 180px;
+    border-radius: 9px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 160ms var(--ease);
+  }
+  .thumb-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .thumb-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(56,189,248,0.25); }
+  .thumb-card img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    display: block;
+    background: var(--thumb-bg);
+  }
+  .thumb-meta {
+    padding: 6px 8px;
+    font-size: 0.71rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+  }
+  .thumb-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+    font-weight: 550;
+  }
+  .thumb-time { color: var(--muted); flex-shrink: 0; }
+  .thumb-del {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(9,9,11,0.78);
+    color: #f4f4f5;
+    font-size: 0.72rem;
+    line-height: 1;
+    display: none;
+    place-items: center;
+    cursor: pointer;
+  }
+  .thumb-card:hover .thumb-del { display: grid; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"></polygon>
+          <line x1="12" y1="22" x2="12" y2="15.5"></line>
+          <polyline points="22 8.5 12 15.5 2 8.5"></polyline>
+        </svg>
+      </div>
+      <span class="brand-name">RayTrace Studio</span>
+      <span class="brand-tag">PDC #15</span>
+    </div>
+    <div class="hw-bar">
+      <span class="hw-pill" id="cpuBadge"><span class="dot"></span>Detecting CPU...</span>
+      <span class="hw-pill" id="gpuBadge"><span class="dot"></span>Detecting GPU...</span>
+      <button class="theme-btn" id="btnTheme" title="Switch Light / Dark theme"></button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-scroll">
+        <div class="ctrl-group">
+          <div class="ctrl-head"><span>Engine</span></div>
+          <div class="seg seg-5" id="backendSeg">
+            <button class="seg-btn" data-be="seq">SEQ</button>
+            <button class="seg-btn" data-be="omp">OMP</button>
+            <button class="seg-btn" data-be="mpi">MPI</button>
+            <button class="seg-btn active" data-be="hybrid">HYBRID</button>
+            <button class="seg-btn" data-be="cuda">CUDA</button>
+          </div>
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-head"><span>Scene</span></div>
+          <div class="scene-grid" id="sceneGrid">
+            <button class="scene-btn active" data-scene="cyberpunk_city"><span class="scene-dot" style="background:#06b6d4;"></span>Cyberpunk Car</button>
+            <button class="scene-btn" data-scene="cyber_cathedral"><span class="scene-dot" style="background:#a855f7;"></span>Cyber Cathedral</button>
+            <button class="scene-btn" data-scene="orbital_megastructure"><span class="scene-dot" style="background:#38bdf8;"></span>Orbital Ring</button>
+            <button class="scene-btn" data-scene="large_world"><span class="scene-dot" style="background:#10b981;"></span>Large World</button>
+            <button class="scene-btn" data-scene="studio_glass"><span class="scene-dot" style="background:#f59e0b;"></span>Studio Glass</button>
+            <button class="scene-btn" data-scene="mesh_showcase"><span class="scene-dot" style="background:#f43f5e;"></span>3D Mesh</button>
+          </div>
+        </div>
+
+        <div class="ctrl-group">
+          <div class="ctrl-head"><span>Quality</span><span class="ctrl-val mono" id="qualityMeta">1280×720 · 8 spp</span></div>
+          <div class="seg seg-5" id="qualitySeg">
+            <button class="seg-btn" data-q="fast">Fast</button>
+            <button class="seg-btn active" data-q="hd">HD</button>
+            <button class="seg-btn" data-q="fhd">1080p</button>
+            <button class="seg-btn" data-q="ultra">4K</button>
+            <button class="seg-btn" data-q="eightk">8K</button>
+          </div>
+        </div>
+
+        <!-- Dynamic Parallelism Controls (only shown for active parallel engine) -->
+        <div class="ctrl-group" id="ompCtrl" style="display:none;">
+          <div class="ctrl-head"><span>OpenMP Threads</span><span class="ctrl-val mono" id="ompVal">6</span></div>
+          <input type="range" id="ompSlider" min="1" max="12" value="6" />
+          <div class="chip-row" id="ompChips"></div>
+        </div>
+
+        <div class="ctrl-group" id="mpiCtrl" style="display:none;">
+          <div class="ctrl-head"><span>MPI Ranks</span><span class="ctrl-val mono" id="mpiVal">6</span></div>
+          <input type="range" id="mpiSlider" min="1" max="12" value="6" />
+          <div class="seg seg-2" id="mpiModeSeg" style="margin-top:2px;">
+            <button class="seg-btn active" data-mpimode="dynamic">Dynamic (Iprobe)</button>
+            <button class="seg-btn" data-mpimode="static">Static (Gatherv)</button>
+          </div>
+        </div>
+
+        <div class="ctrl-group" id="hybridCtrl">
+          <div class="ctrl-head"><span>MPI × OpenMP</span><span class="ctrl-val mono" id="hybridVal">3×4</span></div>
+          <div class="chip-row" id="hybridChips"></div>
+          <div class="seg seg-2" id="hybModeSeg" style="margin-top:2px;">
+            <button class="seg-btn active" data-mpimode="dynamic">Dynamic (Iprobe)</button>
+            <button class="seg-btn" data-mpimode="static">Static (Gatherv)</button>
+          </div>
+        </div>
+
+        <div class="ctrl-group" id="cudaCtrl" style="display:none;">
+          <div class="ctrl-head"><span>CUDA Block Size</span></div>
+          <div class="seg seg-3" id="cudaBlockSeg" style="grid-template-columns:repeat(3,1fr);">
+            <button class="seg-btn" data-block="8">8×8</button>
+            <button class="seg-btn active" data-block="16">16×16</button>
+            <button class="seg-btn" data-block="32">32×32</button>
+          </div>
+        </div>
+
+        <details class="adv">
+          <summary><span>Advanced</span><span class="mono" style="font-size:0.7rem;">Custom</span></summary>
+          <div class="adv-body">
+            <div class="grid-2">
+              <label class="fld">Width <input type="number" id="rWidth" value="1280" min="64" max="7680" /></label>
+              <label class="fld">Height <input type="number" id="rHeight" value="720" min="64" max="4320" /></label>
+            </div>
+            <div class="grid-3">
+              <label class="fld">SPP <input type="number" id="rSpp" value="8" min="1" max="256" /></label>
+              <label class="fld">Depth <input type="number" id="rDepth" value="8" min="1" max="32" /></label>
+              <label class="fld">Objects <input type="number" id="rObjects" value="1200" min="0" max="25000" /></label>
+            </div>
+            <div class="grid-2">
+              <label class="fld">Tile Size <input type="number" id="rTile" value="32" min="4" max="256" /></label>
+              <label class="fld">Seed <input type="number" id="rSeed" value="42" min="0" /></label>
+            </div>
+            <div class="grid-2">
+              <label class="fld">OMP Schedule
+                <select id="rSchedule">
+                  <option value="dynamic">dynamic</option>
+                  <option value="guided">guided</option>
+                  <option value="static">static</option>
+                </select>
+              </label>
+              <label class="fld" id="objWrap" style="display:none;">Mesh (.obj)
+                <select id="rObj"></select>
+              </label>
+            </div>
+            <label class="chk"><input type="checkbox" id="rHeatmap" checked /> Generate Tile / SM Heatmap</label>
+            <label class="chk"><input type="checkbox" id="rCompareSeq" /> Verify PSNR vs Sequential</label>
+          </div>
+        </details>
+      </div>
+
+      <div class="sidebar-foot">
+        <button class="btn btn-primary" id="btnRender">Render</button>
+        <button class="btn btn-danger" id="btnCancel" style="display:none;">Cancel</button>
+        <button class="btn" id="btnSave" disabled title="Save render to filmstrip">Save</button>
+      </div>
+    </aside>
+
+    <!-- RIGHT MAIN STAGE -->
+    <section class="stage">
+      <div class="viewport" id="viewport">
+        <div class="empty-hero" id="emptyHero">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          <p>Ready to trace rays</p>
+          <span>Choose an engine &amp; scene on the left, then click <strong>Render</strong>.</span>
+        </div>
+
+        <img id="heroRender" alt="Rendered frame" style="display:none;" />
+        <div class="hm-layer" id="hmLayer" style="display:none; clip-path: inset(0 0 0 50%);">
+          <img id="heroHeatmap" alt="Workload heatmap" style="display:block;" />
+        </div>
+        <div class="split-line" id="splitLine" style="display:none; left:50%;">
+          <div class="split-handle">&harr;</div>
+        </div>
+
+        <div class="hud-pill hud-left mono" id="hudMeta" style="display:none;"></div>
+        <div class="hud-pill hud-right" id="hudModes" style="display:none;">
+          <button class="hud-mode" data-vmode="render">Render</button>
+          <button class="hud-mode active" data-vmode="split">Split</button>
+          <button class="hud-mode" data-vmode="heatmap">Heatmap</button>
+        </div>
+
+        <div class="status-pill mono" id="statusPill"></div>
+        <div class="vp-progress" id="vpProgress"><div class="vp-progress-fill" id="vpFill"></div></div>
+      </div>
+
+      <div class="telemetry-card">
+        <div class="kpi-row">
+          <div class="kpi"><div class="kpi-lbl">Compute Time</div><div class="kpi-val mono" id="kCompute">—</div></div>
+          <div class="kpi"><div class="kpi-lbl">Render Kernel</div><div class="kpi-val mono" id="kRender">—</div></div>
+          <div class="kpi"><div class="kpi-lbl">Throughput</div><div class="kpi-val mono" id="kMrays">—</div></div>
+          <div class="kpi"><div class="kpi-lbl" id="kFourthLbl">Comm / Transfer</div><div class="kpi-val mono" id="kFourth">—</div></div>
+        </div>
+
+        <div class="stage-bar-row">
+          <div class="stage-bar" id="stageBar"></div>
+          <button class="chip mono" id="btnConsole">Console</button>
+        </div>
+        <div class="stage-legend mono" id="stageLegend"></div>
+        <div class="console-drawer mono" id="consoleDrawer">Waiting for render...</div>
+      </div>
+
+      <div id="filmstripSection">
+        <div class="filmstrip-head" style="margin-bottom:7px;">
+          <span>Saved &amp; Recent Renders</span>
+          <span class="mono" id="filmstripCount" style="font-weight:500;">0 items</span>
+        </div>
+        <div class="filmstrip" id="filmstrip"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+
+  const QUALITY = {
+    fast:   { w: 640,  h: 360,  spp: 4,  depth: 6,  objects: 500 },
+    hd:     { w: 1280, h: 720,  spp: 8,  depth: 8,  objects: 1200 },
+    fhd:    { w: 1920, h: 1080, spp: 16, depth: 10, objects: 1800 },
+    ultra:  { w: 3840, h: 2160, spp: 32, depth: 12, objects: 2500 },
+    eightk: { w: 7680, h: 4320, spp: 8,  depth: 10, objects: 2000 },
+  };
+
+  // Theme switcher (Dark / Light with localStorage persistence)
+  (function setupTheme() {
+    const sunSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path></svg>`;
+    const moonSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
+    const apply = (mode) => {
+      document.documentElement.setAttribute("data-theme", mode);
+      $("btnTheme").innerHTML = mode === "light" ? `${moonSvg}<span>Dark</span>` : `${sunSvg}<span>Light</span>`;
+      try { localStorage.setItem("rt_theme", mode); } catch (e) {}
+    };
+    let saved = "dark";
+    try { saved = localStorage.getItem("rt_theme") || "dark"; } catch (e) {}
+    apply(saved === "light" ? "light" : "dark");
+    $("btnTheme").addEventListener("click", () => {
+      const cur = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+      apply(cur === "light" ? "dark" : "light");
+    });
+  })();
+
+  const SCENE_LABELS = {
+    cyberpunk_city: "Cyberpunk Car",
+    cyber_cathedral: "Cyber Cathedral",
+    orbital_megastructure: "Orbital Ring",
+    large_world: "Large World",
+    studio_glass: "Studio Glass",
+    mesh_showcase: "3D Mesh",
+  };
+
+  const BE_COLORS = {
+    seq: "#a1a1aa",
+    omp: "#38bdf8",
+    mpi: "#f59e0b",
+    hybrid: "#a855f7",
+    cuda: "#10b981",
+  };
+
+  const state = {
+    sys: null,
+    backend: "hybrid",
+    scene: "cyberpunk_city",
+    mpiMode: "dynamic",
+    ranks: 3,
+    threads: 4,
+    block: 16,
+    viewMode: "split",
+    jobId: null,
+    currentItem: null,
+    recentItems: [],
+    pinnedItems: [],
+  };
+
+  function fmtMs(v) {
+    if (v === null || v === undefined) return "—";
+    return v >= 1000 ? (v / 1000).toFixed(2) + " s" : v.toFixed(1) + " ms";
+  }
+
+  function syncQualityMeta() {
+    $("qualityMeta").textContent = `${$("rWidth").value}×${$("rHeight").value} · ${$("rSpp").value} spp`;
+  }
+
+  // Split slider (pointer events for smooth mouse & touch drag)
+  (function setupSplit() {
+    const vp = $("viewport");
+    const line = $("splitLine");
+    let dragging = false;
+    const setPct = (clientX) => {
+      if (state.viewMode !== "split") return;
+      const r = vp.getBoundingClientRect();
+      const pct = Math.max(2, Math.min(98, ((clientX - r.left) / r.width) * 100));
+      $("hmLayer").style.clipPath = `inset(0 0 0 ${pct}%)`;
+      line.style.left = pct + "%";
+    };
+    line.addEventListener("pointerdown", (e) => { dragging = true; e.stopPropagation(); });
+    vp.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".hud-pill")) return;
+      if (state.viewMode === "split" && $("hmLayer").style.display !== "none") {
+        dragging = true;
+        setPct(e.clientX);
+      }
+    });
+    window.addEventListener("pointerup", () => { dragging = false; });
+    window.addEventListener("pointermove", (e) => { if (dragging) setPct(e.clientX); });
+  })();
+
+  function applyViewMode(mode, hasHeatmap) {
+    state.viewMode = mode;
+    document.querySelectorAll(".hud-mode").forEach((b) => {
+      b.classList.toggle("active", b.dataset.vmode === mode);
+      if (b.dataset.vmode === "split" || b.dataset.vmode === "heatmap") {
+        b.disabled = !hasHeatmap;
+      }
+    });
+    if (!hasHeatmap || mode === "render") {
+      $("heroRender").style.display = "block";
+      $("hmLayer").style.display = "none";
+      $("splitLine").style.display = "none";
+    } else if (mode === "heatmap") {
+      $("heroRender").style.display = "none";
+      $("hmLayer").style.display = "block";
+      $("hmLayer").style.clipPath = "inset(0 0 0 0)";
+      $("splitLine").style.display = "none";
+    } else {
+      $("heroRender").style.display = "block";
+      $("hmLayer").style.display = "block";
+      $("hmLayer").style.clipPath = "inset(0 0 0 50%)";
+      $("splitLine").style.display = "block";
+      $("splitLine").style.left = "50%";
+    }
+  }
+
+  document.querySelectorAll(".hud-mode").forEach((b) => {
+    b.addEventListener("click", () => {
+      if (b.disabled) return;
+      const hasHm = Boolean(state.currentItem && state.currentItem.heatmap_url);
+      applyViewMode(b.dataset.vmode, hasHm);
+    });
+  });
+
+  // Engine selector
+  function selectBackend(be) {
+    state.backend = be;
+    document.querySelectorAll("#backendSeg .seg-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.be === be);
+    });
+    $("ompCtrl").style.display = be === "omp" ? "flex" : "none";
+    $("mpiCtrl").style.display = be === "mpi" ? "flex" : "none";
+    $("hybridCtrl").style.display = be === "hybrid" ? "flex" : "none";
+    $("cudaCtrl").style.display = be === "cuda" ? "flex" : "none";
+  }
+
+  document.querySelectorAll("#backendSeg .seg-btn").forEach((b) => {
+    b.addEventListener("click", () => { if (!b.disabled) selectBackend(b.dataset.be); });
+  });
+
+  // Scene selector
+  document.querySelectorAll("#sceneGrid .scene-btn").forEach((b) => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll("#sceneGrid .scene-btn").forEach((x) => x.classList.remove("active"));
+      b.classList.add("active");
+      state.scene = b.dataset.scene;
+      $("objWrap").style.display = state.scene === "mesh_showcase" ? "flex" : "none";
+    });
+  });
+
+  // Quality selector
+  document.querySelectorAll("#qualitySeg .seg-btn").forEach((b) => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll("#qualitySeg .seg-btn").forEach((x) => x.classList.remove("active"));
+      b.classList.add("active");
+      const q = QUALITY[b.dataset.q];
+      if (!q) return;
+      $("rWidth").value = q.w;
+      $("rHeight").value = q.h;
+      $("rSpp").value = q.spp;
+      $("rDepth").value = q.depth;
+      $("rObjects").value = q.objects;
+      syncQualityMeta();
+    });
+  });
+
+  ["rWidth", "rHeight", "rSpp"].forEach((id) => $(id).addEventListener("input", syncQualityMeta));
+
+  // MPI mode toggles (shared across MPI & Hybrid views)
+  document.querySelectorAll("[data-mpimode]").forEach((b) => {
+    b.addEventListener("click", () => {
+      state.mpiMode = b.dataset.mpimode;
+      document.querySelectorAll("[data-mpimode]").forEach((x) => {
+        x.classList.toggle("active", x.dataset.mpimode === state.mpiMode);
+      });
+    });
+  });
+
+  // CUDA block selector
+  document.querySelectorAll("#cudaBlockSeg .seg-btn").forEach((b) => {
+    b.addEventListener("click", () => {
+      state.block = Number(b.dataset.block);
+      document.querySelectorAll("#cudaBlockSeg .seg-btn").forEach((x) => x.classList.remove("active"));
+      b.classList.add("active");
+    });
+  });
+
+  // Console toggle
+  $("btnConsole").addEventListener("click", () => {
+    $("consoleDrawer").classList.toggle("open");
+    $("btnConsole").classList.toggle("active");
+  });
+
+  // Load System Capabilities
+  async function loadSystem() {
+    const res = await fetch("/api/system");
+    const sys = await res.json();
+    state.sys = sys;
+
+    $("cpuBadge").innerHTML = `<span class="dot"></span>${sys.physical_cores}C / ${sys.logical_threads}T CPU`;
+    $("cpuBadge").title = sys.cpu_model;
+
+    if (sys.cuda_available) {
+      $("gpuBadge").className = "hw-pill cuda-ok";
+      $("gpuBadge").innerHTML = `<span class="dot"></span>${sys.gpu.name}`;
+    } else {
+      $("gpuBadge").className = "hw-pill cuda-off";
+      $("gpuBadge").innerHTML = `<span class="dot"></span>CPU-Only Mode`;
+    }
+
+    document.querySelectorAll("#backendSeg .seg-btn").forEach((b) => {
+      b.disabled = !sys.binaries[b.dataset.be];
+    });
+    if (!sys.binaries[state.backend]) selectBackend("omp");
+
+    // Adaptive sliders & chips
+    const logi = sys.logical_threads;
+    $("ompSlider").max = String(logi);
+    $("ompSlider").value = String(sys.physical_cores);
+    $("ompVal").textContent = String(sys.physical_cores);
+
+    $("mpiSlider").max = String(logi);
+    $("mpiSlider").value = String(sys.physical_cores);
+    $("mpiVal").textContent = String(sys.physical_cores);
+
+    $("ompSlider").addEventListener("input", () => {
+      $("ompVal").textContent = $("ompSlider").value;
+      $("ompChips").querySelectorAll(".chip").forEach((c) => {
+        c.classList.toggle("active", c.dataset.t === $("ompSlider").value);
+      });
+    });
+    $("mpiSlider").addEventListener("input", () => { $("mpiVal").textContent = $("mpiSlider").value; });
+
+    const ompChips = $("ompChips");
+    ompChips.innerHTML = "";
+    sys.presets.omp_sweep.forEach((t) => {
+      const c = document.createElement("button");
+      c.className = "chip mono" + (t === sys.physical_cores ? " active" : "");
+      c.dataset.t = String(t);
+      c.textContent = `${t}T`;
+      c.addEventListener("click", () => {
+        $("ompSlider").value = String(t);
+        $("ompVal").textContent = String(t);
+        ompChips.querySelectorAll(".chip").forEach((x) => x.classList.remove("active"));
+        c.classList.add("active");
+      });
+      ompChips.appendChild(c);
+    });
+
+    const [recR, recT] = sys.presets.recommended_hybrid;
+    state.ranks = recR;
+    state.threads = recT;
+    $("hybridVal").textContent = `${recR}×${recT}`;
+
+    const hybChips = $("hybridChips");
+    hybChips.innerHTML = "";
+    const seen = new Set();
+    [...sys.presets.hybrid_physical, ...sys.presets.hybrid_logical].forEach(([r, t]) => {
+      const key = `${r}x${t}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const c = document.createElement("button");
+      c.className = "chip mono" + (r === recR && t === recT ? " active" : "");
+      c.textContent = `${r}×${t}`;
+      c.addEventListener("click", () => {
+        state.ranks = r;
+        state.threads = t;
+        $("hybridVal").textContent = `${r}×${t}`;
+        hybChips.querySelectorAll(".chip").forEach((x) => x.classList.remove("active"));
+        c.classList.add("active");
+      });
+      hybChips.appendChild(c);
+    });
+
+    const objSel = $("rObj");
+    objSel.innerHTML = "";
+    const objs = sys.obj_assets.length ? sys.obj_assets : ["assets/sample_mesh.obj"];
+    objs.forEach((a) => {
+      const opt = document.createElement("option");
+      opt.value = a;
+      opt.textContent = a.replace(/^assets\//, "");
+      objSel.appendChild(opt);
+    });
+
+    selectBackend(state.backend);
+  }
+
+  // Show an item in the hero viewport + metrics
+  function displayResult(item, activeCardEl = null) {
+    state.currentItem = item;
+    const tel = item.telemetry || {};
+    const tm = tel.timings_ms || {};
+    const ts = item.cacheBust || "";
+    const q = ts ? `?t=${ts}` : "";
+
+    $("emptyHero").style.display = "none";
+    $("heroRender").src = item.output_url + q;
+    const hasHm = Boolean(item.heatmap_url);
+    if (hasHm) {
+      $("heroHeatmap").src = item.heatmap_url + q;
+    } else {
+      $("heroHeatmap").removeAttribute("src");
+    }
+
+    $("hudMeta").style.display = "inline-flex";
+    const sLabel = SCENE_LABELS[tel.scene] || tel.scene || "Render";
+    const beLabel = (tel.backend || "seq").toUpperCase();
+    $("hudMeta").innerHTML = `<span style="color:${BE_COLORS[tel.backend] || '#fff'}; font-weight:700;">${beLabel}</span> · ${sLabel} · ${tel.width || '?'}×${tel.height || '?'} · ${tel.spp || '?'} spp`;
+    $("hudModes").style.display = "inline-flex";
+
+    const nextMode = hasHm ? (state.viewMode === "render" ? "render" : state.viewMode) : "render";
+    applyViewMode(nextMode, hasHm);
+
+    $("kCompute").textContent = fmtMs(tm.total_compute);
+    $("kRender").textContent = fmtMs(tm.render_compute);
+    $("kMrays").textContent = tel.mrays_per_sec !== undefined ? tel.mrays_per_sec.toFixed(1) + " MR/s" : "—";
+
+    if (item.psnr) {
+      $("kFourthLbl").textContent = "PSNR vs Seq";
+      $("kFourth").textContent = item.psnr.exact ? "∞ dB (Exact)" : `${item.psnr.psnr_db} dB`;
+    } else {
+      $("kFourthLbl").textContent = "Comm / Transfer";
+      $("kFourth").textContent = fmtMs((tm.h2d_transfer || 0) + (tm.comm_or_d2h || 0));
+    }
+
+    const stages = [
+      { name: "Setup", ms: (tm.scene_build || 0) + (tm.bvh_build || 0), color: "#64748b" },
+      { name: "Render", ms: tm.render_compute || 0, color: BE_COLORS[tel.backend] || "#38bdf8" },
+      { name: "Comm/Xfer", ms: (tm.h2d_transfer || 0) + (tm.comm_or_d2h || 0), color: "#f59e0b" },
+      { name: "I/O", ms: tm.image_io || 0, color: "#ec4899" },
+    ];
+    const tot = Math.max(0.001, stages.reduce((a, s) => a + s.ms, 0));
+    $("stageBar").innerHTML = stages
+      .filter((s) => s.ms > 0)
+      .map((s) => `<div style="width:${(s.ms / tot) * 100}%; background:${s.color};" title="${s.name}: ${s.ms.toFixed(2)} ms"></div>`)
+      .join("");
+    $("stageLegend").innerHTML = stages
+      .map((s) => `<span><i class="sw" style="background:${s.color};"></i>${s.name} ${s.ms.toFixed(1)} ms</span>`)
+      .join("");
+
+    $("btnSave").disabled = Boolean(item.id); // already saved if it has a gallery id
+    document.querySelectorAll(".thumb-card").forEach((el) => el.classList.remove("active"));
+    if (activeCardEl) activeCardEl.classList.add("active");
+  }
+
+  // Render Job
+  async function startRender() {
+    let threads = 1;
+    let ranks = 1;
+    if (state.backend === "omp") {
+      threads = Number($("ompSlider").value);
+    } else if (state.backend === "mpi") {
+      ranks = Number($("mpiSlider").value);
+    } else if (state.backend === "hybrid") {
+      ranks = state.ranks;
+      threads = state.threads;
+    }
+
+    const payload = {
+      backend: state.backend,
+      scene: state.scene,
+      obj_path: $("rObj").value || "assets/sample_mesh.obj",
+      width: Number($("rWidth").value),
+      height: Number($("rHeight").value),
+      spp: Number($("rSpp").value),
+      depth: Number($("rDepth").value),
+      objects: Number($("rObjects").value),
+      tile: Number($("rTile").value),
+      seed: Number($("rSeed").value),
+      threads,
+      ranks,
+      schedule: $("rSchedule").value,
+      mpi_mode: state.mpiMode,
+      block: state.block,
+      heatmap: $("rHeatmap").checked,
+      compare_seq: $("rCompareSeq").checked,
+    };
+
+    $("btnRender").style.display = "none";
+    $("btnCancel").style.display = "inline-flex";
+    $("btnSave").disabled = true;
+    $("vpProgress").style.display = "block";
+    $("vpFill").style.width = "12%";
+    $("statusPill").style.display = "block";
+    $("statusPill").textContent = `Rendering (${state.backend.toUpperCase()})...`;
+    $("consoleDrawer").textContent = "Launching render...";
+
+    const resp = await fetch("/api/render", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const job = await resp.json();
+    state.jobId = job.job_id;
+
+    const timer = setInterval(async () => {
+      try {
+        const jr = await fetch(`/api/job/${job.job_id}`);
+        const j = await jr.json();
+        $("vpFill").style.width = Math.round((j.progress || 0.15) * 100) + "%";
+        $("statusPill").textContent = j.current_step || "Rendering...";
+        $("consoleDrawer").textContent = (j.logs || []).join("\n");
+        $("consoleDrawer").scrollTop = $("consoleDrawer").scrollHeight;
+
+        if (j.status === "done" || j.status === "error" || j.status === "cancelled") {
+          clearInterval(timer);
+          $("btnRender").style.display = "inline-flex";
+          $("btnCancel").style.display = "none";
+          $("vpProgress").style.display = "none";
+          $("statusPill").style.display = "none";
+
+          if (j.status === "done" && j.result) {
+            const item = {
+              title: `${SCENE_LABELS[j.result.telemetry.scene] || j.result.telemetry.scene} (${j.result.telemetry.backend.toUpperCase()})`,
+              output_url: j.result.output_url,
+              heatmap_url: j.result.heatmap_url,
+              telemetry: j.result.telemetry,
+              psnr: j.result.psnr,
+              cacheBust: Date.now(),
+            };
+            state.recentItems.unshift(item);
+            state.recentItems = state.recentItems.slice(0, 10);
+            renderFilmstrip();
+            displayResult(item, $("filmstrip").firstChild);
+            $("btnSave").disabled = false;
+          } else if (j.status === "error") {
+            $("consoleDrawer").classList.add("open");
+            $("btnConsole").classList.add("active");
+          }
+        }
+      } catch (e) {
+        clearInterval(timer);
+      }
+    }, 300);
+  }
+
+  $("btnRender").addEventListener("click", startRender);
+  $("btnCancel").addEventListener("click", async () => {
+    if (state.jobId) await fetch(`/api/job/${state.jobId}/cancel`, { method: "POST" });
+  });
+
+  $("btnSave").addEventListener("click", async () => {
+    if (!state.currentItem || state.currentItem.id) return;
+    const tel = state.currentItem.telemetry || {};
+    const title = `${SCENE_LABELS[tel.scene] || tel.scene || "Render"} · ${(tel.backend || "").toUpperCase()} ${tel.width}×${tel.height}`;
+    await fetch("/api/gallery/pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title,
+        output_url: state.currentItem.output_url,
+        heatmap_url: state.currentItem.heatmap_url,
+        telemetry: tel,
+        psnr: state.currentItem.psnr,
+      }),
+    });
+    state.recentItems = state.recentItems.filter((x) => x.output_url !== state.currentItem.output_url);
+    await loadGallery(false);
+    $("btnSave").disabled = true;
+  });
+
+  function renderFilmstrip() {
+    const strip = $("filmstrip");
+    const combined = [...state.recentItems, ...state.pinnedItems];
+    $("filmstripCount").textContent = `${combined.length} item${combined.length === 1 ? "" : "s"}`;
+    strip.innerHTML = "";
+    if (!combined.length) {
+      strip.innerHTML = `<div style="font-size:0.78rem; color:var(--dim); padding:6px 0;">Rendered frames and pinned 4K/8K snapshots will appear here.</div>`;
+      return;
+    }
+    combined.forEach((item) => {
+      const tel = item.telemetry || {};
+      const tm = tel.timings_ms || {};
+      const card = document.createElement("div");
+      card.className = "thumb-card" + (state.currentItem && state.currentItem.output_url === item.output_url ? " active" : "");
+      const img = document.createElement("img");
+      img.src = item.output_url;
+      img.alt = item.title || "Render";
+      const meta = document.createElement("div");
+      meta.className = "thumb-meta";
+      meta.innerHTML = `<span class="thumb-title">${item.title || SCENE_LABELS[tel.scene] || "Render"}</span><span class="thumb-time mono">${fmtMs(tm.total_compute)}</span>`;
+      card.appendChild(img);
+      card.appendChild(meta);
+
+      if (item.id) {
+        const del = document.createElement("button");
+        del.className = "thumb-del";
+        del.textContent = "×";
+        del.title = "Remove saved item";
+        del.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          await fetch(`/api/gallery/${item.id}`, { method: "DELETE" });
+          await loadGallery(false);
+        });
+        card.appendChild(del);
+      }
+
+      card.addEventListener("click", () => displayResult(item, card));
+      strip.appendChild(card);
+    });
+  }
+
+  async function loadGallery(autoSelect = true) {
+    try {
+      const res = await fetch("/api/gallery");
+      const data = await res.json();
+      state.pinnedItems = data.items || [];
+      renderFilmstrip();
+      if (autoSelect && !state.currentItem && state.pinnedItems.length) {
+        displayResult(state.pinnedItems[0], $("filmstrip").firstChild);
+      }
+    } catch (e) {
+      // Ignore if offline before server boot
+    }
+  }
+
+  loadSystem();
+  loadGallery(true);
+})();
+</script>
+</body>
+</html>

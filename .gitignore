@@ -1,0 +1,16 @@
+# Compiled binaries and build artifacts
+bin/
+*.o
+*.out
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Temporary test outputs
+results/tmp/
+*.ppm
+
+# OS / Editor
+.DS_Store
+Thumbs.db
